@@ -1,21 +1,33 @@
 package pdfDownloader
 
-import "fmt"
+import (
+	"fmt"
+	"mseScraping/utils"
+)
 
-func CreateDownloader(fileUrl string, fileName string, fileNameCsv string) *PdfDownloader {
+func CreateDownloader(
+	downloadUrl string,
+	pdfPath string,
+	csvPath string,
+	errorPath string) *PdfDownloader {
+
+	utils.EnsureDirsExist([]string{pdfPath, csvPath, errorPath})
+
 	return &PdfDownloader{
-		FileUrl:     fileUrl,
-		FileName:    fileName,
-		FileNameCsv: fileNameCsv,
+		DownloadUrlTemplate: downloadUrl,
+		PdfPath:             pdfPath,
+		CsvPath:             csvPath,
+		ErrorPath:           errorPath,
 	}
 }
 
 type PdfDownloader struct {
-	FileUrl     string
-	FileName    string
-	FileNameCsv string
+	DownloadUrlTemplate string
+	PdfPath             string
+	CsvPath             string
+	ErrorPath           string
 }
 
 func (d *PdfDownloader) GetPdfs() {
-	fmt.Println("Downloading pdfs...")
+	fmt.Println("Downloading pdfs from ", d.DownloadUrlTemplate)
 }

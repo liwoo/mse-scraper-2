@@ -1,13 +1,33 @@
 package main
 
-import "mseScraping/pdfDownloader"
+import (
+	"flag"
+	"github.com/joho/godotenv"
+	"log"
+	"mseScraping/pdfDownloader"
+)
 
 func main() {
-	downloader := pdfDownloader.CreateDownloader(
-		"some-file-url",
-		"some-file-name",
-		"some-file-path",
-	)
+	envs, err := godotenv.Read(".env")
 
-	downloader.GetPdfs()
+	if err != nil {
+		panic(err)
+	}
+	var mode string
+	flag.StringVar(&mode, "mode", "", "The mode to run in, the options are download or clean.")
+	flag.Parse()
+
+	switch mode {
+	case "download":
+		downloader := pdfDownloader.CreateDownloader(
+			envs["MSE_URL"],
+			envs["RAW_PDF_PATH"],
+			envs["RAW_CSV_PATH"],
+			envs["ERROR_FILE_PATH"],
+		)
+
+		downloader.GetPdfs()
+	default:
+		log.Fatal("Please Enter the Necessary Flag (e.g. -download)", mode)
+	}
 }
