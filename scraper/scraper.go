@@ -2,8 +2,16 @@ package scraper
 
 import (
 	"fmt"
+	"net/http"
+
+	"mseScraping/downloader"
 	"mseScraping/utils"
+
+	"github.com/pdftables/go-pdftables-api/pkg/client"
+	"github.com/sirsean/go-pool"
 )
+
+var clientCSV client.Client
 
 func CreateScraper(
 	downloadUrl string,
@@ -15,8 +23,8 @@ func CreateScraper(
 	cleanedJsonPath string,
 	queueSize int,
 	workerNum int,
-	pdfStartNum string,
-	pdfEndNum string) *Scraper {
+	pdfStartNum int,
+	pdfEndNum int) *Scraper {
 
 	utils.EnsureDirsExist([]string{pdfPath, csvPath, errorPath, cleanedCSVPath, cleanedJsonPath})
 
@@ -45,15 +53,39 @@ type Scraper struct {
 	CleanedJsonPath     string
 	QueueSize           int
 	WorkerNum           int
-	PdfStartNum         string
-	PdfEndNum           string
+	PdfStartNum         int
+	PdfEndNum           int
 }
 
 func (s *Scraper) Download() {
 	fmt.Println("Downloading pdfs from ", s.DownloadUrlTemplate)
+	var Client = http.Client{
+		CheckRedirect: func(r *http.Request, via []*http.Request) error {
+			r.URL.Opaque = r.URL.Path
+			return nil
+		},
+	}
+	clientCSV = client.Client{
+		APIKey:     s.ApiKey,
+		HTTPClient: http.DefaultClient,
+	}
+	p := pool.NewPool(s.QueueSize, s.WorkerNum)
+	p.Start()
+
+	for i := s.PdfStartNum; i <= s.PdfEndNum; i++ {
+		p.Add(downloader.MSEPdfDownloader{
+			FileUrl:     fmt.Sprint(s.DownloadUrlTemplate, i),
+			FileName:    fmt.Sprint(s.PdfPath, i, ".pdf"),
+			FileNameCSV: fmt.Sprint(s.CsvPath, i, ".csv"),
+			Client:      Client,
+			CsvClient:   &clientCSV,
+		})
+	}
+
+	p.Close()
 }
 
-func (s *Scraper) Clean()  {
+func (s *Scraper) Clean() {
 	fmt.Println("Saving pdfs to ", s.CleanedCSVPath)
 }
 
