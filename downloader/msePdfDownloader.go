@@ -75,7 +75,7 @@ func (m MSEPdfDownloader) ConvertToCSV(size int64) error {
 	defer func() {
 
 		cerr := file.Close()
-		if err == nil {
+		if cerr == nil {
 			err = cerr
 		}
 
@@ -88,39 +88,46 @@ func (m MSEPdfDownloader) ConvertToCSV(size int64) error {
 		}
 
 		if !nonStandardDailyReport(size) {
-			func() {
-				file, err := os.Open(m.FileName)
+			err := attemptCsvConversion(m)
 
-				if err != nil {
-					log.Fatal(err)
-				}
+			if err != nil {
+				log.Fatal(err)
+			}
 
-				defer file.Close()
-
-				csvFile, err := os.Create(m.FileNameCSV)
-
-				if err != nil {
-					log.Fatal(err)
-				}
-
-				defer csvFile.Close()
-
-				converted, err := m.CsvClient.Do(file, client.FormatCSV)
-
-				if err != nil {
-					log.Fatal(err)
-				}
-
-				_, err = io.Copy(csvFile, converted)
-
-				if err != nil {
-					log.Fatal(err)
-				}
-
-				fmt.Printf("Done converting %s to CSV\n", m.FileName)
-			}()
+			fmt.Printf("Done converting %s to CSV\n", m.FileName)
 		}
 	}()
 
+	return nil
+}
+
+func attemptCsvConversion(m MSEPdfDownloader) error {
+	file, err := os.Open(m.FileName)
+
+	if err != nil {
+		return err
+	}
+
+	defer file.Close()
+
+	csvFile, err := os.Create(m.FileNameCSV)
+
+	if err != nil {
+		return err
+	}
+
+	defer csvFile.Close()
+
+	converted, err := m.CsvClient.Do(file, client.FormatCSV)
+
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(csvFile, converted)
+
+	if err != nil {
+		return err
+	}
 	return nil
 }
