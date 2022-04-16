@@ -2,8 +2,10 @@ package scraper
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
+	"mseScraping/cleaner"
 	"mseScraping/downloader"
 	"mseScraping/utils"
 
@@ -87,6 +89,24 @@ func (s *Scraper) Download() {
 
 func (s *Scraper) Clean() {
 	fmt.Println("Saving pdfs to ", s.CleanedCSVPath)
+	p := pool.NewPool(s.QueueSize, s.WorkerNum)
+	p.Start()
+
+	files, err := cleaner.GetAllFilesToClean(s.CsvPath)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, file := range files {
+		p.Add(cleaner.MSECsvCleaner{
+			FileUrl: file,
+			ErrorPath: s.ErrorPath,
+			CleanCsvPath: s.CleanedCSVPath,
+		})
+	}
+
+	p.Close()
 }
 
 func (s *Scraper) Save() {
