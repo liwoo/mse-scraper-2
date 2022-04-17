@@ -1,14 +1,17 @@
 package scraper
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 
 	"mseScraping/cleaner"
 	"mseScraping/downloader"
+	"mseScraping/saver"
 	"mseScraping/utils"
 
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/pdftables/go-pdftables-api/pkg/client"
 	"github.com/sirsean/go-pool"
 )
@@ -23,6 +26,7 @@ func CreateScraper(
 	apiKey string,
 	cleanedCSVPath string,
 	cleanedJsonPath string,
+	dbConnectionString string,
 	queueSize int,
 	workerNum int,
 	pdfStartNum int,
@@ -42,6 +46,7 @@ func CreateScraper(
 		WorkerNum:           workerNum,
 		PdfStartNum:         pdfStartNum,
 		PdfEndNum:           pdfEndNum,
+		DBConnectionString:  dbConnectionString,
 	}
 }
 
@@ -57,6 +62,7 @@ type Scraper struct {
 	WorkerNum           int
 	PdfStartNum         int
 	PdfEndNum           int
+	DBConnectionString  string
 }
 
 func (s *Scraper) Download() {
@@ -100,8 +106,8 @@ func (s *Scraper) Clean() {
 
 	for _, file := range files {
 		p.Add(cleaner.MSECsvCleaner{
-			FileUrl: file,
-			ErrorPath: s.ErrorPath,
+			FileUrl:      file,
+			ErrorPath:    s.ErrorPath,
 			CleanCsvPath: s.CleanedCSVPath,
 		})
 	}
@@ -111,4 +117,33 @@ func (s *Scraper) Clean() {
 
 func (s *Scraper) Save() {
 	fmt.Println("Saving to Database from... ", s.CleanedJsonPath)
+	p := pool.NewPool(s.QueueSize, s.WorkerNum)
+
+	poolConfig, err := pgxpool.ParseConfig(s.DBConnectionString)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	db, err := pgxpool.ConnectConfig(context.Background(), poolConfig)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	p.Start()
+
+	files, err := utils.GetAllCsvFiles(s.CleanedCSVPath)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, file := range files {
+		p.Add(saver.MSESaver{
+			FileUrl:   file,
+			ErrorPath: s.ErrorPath,
+			Db:        db,
+		})
+	}
+
+	p.Close()
 }
