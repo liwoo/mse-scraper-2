@@ -1,7 +1,6 @@
 package scraper
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -11,9 +10,12 @@ import (
 	"mseScraping/saver"
 	"mseScraping/utils"
 
-	"github.com/jackc/pgx/v4/pgxpool"
+	"database/sql"
 	"github.com/pdftables/go-pdftables-api/pkg/client"
 	"github.com/sirsean/go-pool"
+	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect/pgdialect"
+	"github.com/uptrace/bun/driver/pgdriver"
 )
 
 var clientCSV client.Client
@@ -119,15 +121,10 @@ func (s *Scraper) Save() {
 	fmt.Println("Saving to Database from... ", s.CleanedJsonPath)
 	p := pool.NewPool(s.QueueSize, s.WorkerNum)
 
-	poolConfig, err := pgxpool.ParseConfig(s.DBConnectionString)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	db, err := pgxpool.ConnectConfig(context.Background(), poolConfig)
-	if err != nil {
-		log.Fatalln(err)
-	}
+	var pgconn *pgdriver.Connector = pgdriver.NewConnector(pgdriver.WithDSN(s.DBConnectionString))
+	// pgconn.Config().TLSConfig = nil
+	psdb := sql.OpenDB(pgconn)
+	db := bun.NewDB(psdb, pgdialect.New())
 
 	p.Start()
 

@@ -6,76 +6,92 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/uptrace/bun"
 )
 
 type MSESaver struct {
 	FileUrl   string
 	ErrorPath string
-	Db        *pgxpool.Pool
+	Db        *bun.DB
 }
 
 func (u MSESaver) Perform() {
-	rows, err := csvToArray(u.FileUrl)
+	rows, codes, err := csvToArray(u.FileUrl)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	copyCount, err := u.Db.CopyFrom(
-		context.Background(),
-		pgx.Identifier{"people"},
-		[]string{"first_name", "last_name", "age"},
-		pgx.CopyFromRows(rows),
-	)
+	fmt.Println(codes)
+
+	res, err := u.Db.NewInsert().Model(&rows).Exec(context.Background())
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println("Finished copying", copyCount, u.FileUrl)
+	affected, err := res.RowsAffected()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("Finished copying", affected, u.FileUrl)
 }
 
-func csvToArray(filename string) ([][]interface{}, error) {
-	f, err := os.Open(filename)
+func csvToArray(filePath string) ([]DailyCompanyRateModel, []string, error) {
+	fileName := filepath.Base(filePath)
+	date := fileName[:len(fileName)-len(filepath.Ext(fileName))]
+	f, err := os.Open(filePath)
 	if err != nil {
-		log.Fatalln(err)
+		return nil, nil, err
 	}
 
 	csvReader := csv.NewReader(f)
 	records, err := csvReader.ReadAll()
 	if err != nil {
-		log.Fatal(err)
+		return nil, nil, err
 	}
-	rows := [][]interface{}{}
+	codes := []string{}
+	rows := []DailyCompanyRateModel{}
 
 	for _, word := range records {
-		var iter []interface{}
-		iter = append(iter,
-			word[0],
-			word[1],
-			word[2],
-			word[3],
-			parseFloat(word[4]),
-			parseFloat(word[5]),
-			parseFloat(word[6]),
-			parseFloat(word[7]),
-			parseFloat(word[8]),
-			parseFloat(word[9]),
-			parseFloat(word[10]),
-			parseFloat(word[11]),
-			parseFloat(word[12]),
-			parseFloat(word[13]),
-			parseFloat(word[14]),
-			parseFloat(word[16]),
-		)
-		rows = append(rows, iter)
+		var code = word[3]
+		var vers = DailyCompanyRateModel{
+			NO:        word[0],
+			HIGH:      word[1],
+			LOW:       word[2],
+			CODE:      code,
+			BUY:       parseFloat(word[4]),
+			SELL:      parseFloat(word[5]),
+			PCP:       parseFloat(word[6]),
+			TCP:       parseFloat(word[7]),
+			VOL:       parseInt(word[8]),
+			DIVNET:    parseFloat(word[9]),
+			DIVYIELD:  parseFloat(word[10]),
+			EARNYIELD: parseFloat(word[11]),
+			PERATIO:   parseFloat(word[12]),
+			PBVRATION: parseFloat(word[13]),
+			CAP:       parseFloat(word[14]),
+			PROFIT:    parseFloat(word[15]),
+			SHARES:    parseFloat(word[16]),
+			DATE:      date,
+		}
+		rows = append(rows, vers)
 	}
 
-	return rows, nil
+	return rows, codes, nil
+}
+
+func parseInt(value string) int64 {
+	i, err := strconv.ParseInt(value, 10, 16)
+	if err != nil {
+		fmt.Println(err)
+		return 0
+	}
+	return i
 }
 
 func parseFloat(value string) float64 {
