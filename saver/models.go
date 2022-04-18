@@ -5,7 +5,7 @@ import "github.com/uptrace/bun"
 type DailyCompanyRateModel struct {
 	bun.BaseModel `bun:"table:daily_company_rates,alias:u"`
 
-	ID        int64 `bun:",pk,autoincrement"`
+	ID        string
 	NO        string
 	HIGH      string
 	LOW       string
@@ -24,4 +24,11 @@ type DailyCompanyRateModel struct {
 	PROFIT    float64
 	SHARES    float64
 	DATE      string
+}
+
+type CompanyModel struct {
+	bun.BaseModel `bun:"table:companies,alias:u"`
+
+	MSECODE string `bun:"mse_code"`
+	NAME    string
 }

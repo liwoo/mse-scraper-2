@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/uptrace/bun"
 )
@@ -25,9 +26,9 @@ func (u MSESaver) Perform() {
 		log.Fatal(err)
 	}
 
-	fmt.Println(codes)
+	saveCodes(codes, u.Db)
 
-	res, err := u.Db.NewInsert().Model(&rows).Exec(context.Background())
+	res, err := u.Db.NewInsert().Model(&rows).On("CONFLICT (id) DO UPDATE").Exec(context.Background())
 
 	if err != nil {
 		log.Fatal(err)
@@ -35,10 +36,32 @@ func (u MSESaver) Perform() {
 
 	affected, err := res.RowsAffected()
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("Error for getting rates affected:", err)
 	}
 
 	fmt.Println("Finished copying", affected, u.FileUrl)
+}
+
+func saveCodes(codes []string, db *bun.DB) {
+	var rows = []CompanyModel{}
+	for _, code := range codes {
+		rows = append(rows, CompanyModel{
+			MSECODE: code,
+		})
+	}
+	res, err := db.NewInsert().Model(&rows).Exec(context.Background())
+
+	if err != nil {
+		fmt.Println("Error saving codes:", err)
+		return
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	fmt.Println("Finished adding codes", affected)
 }
 
 func csvToArray(filePath string) ([]DailyCompanyRateModel, []string, error) {
@@ -58,9 +81,12 @@ func csvToArray(filePath string) ([]DailyCompanyRateModel, []string, error) {
 	rows := []DailyCompanyRateModel{}
 
 	for _, word := range records {
+		var no = word[0]
 		var code = word[3]
+		var id = strings.ReplaceAll(date, "-", "") + no
 		var vers = DailyCompanyRateModel{
-			NO:        word[0],
+			ID:        id,
+			NO:        no,
 			HIGH:      word[1],
 			LOW:       word[2],
 			CODE:      code,
@@ -79,6 +105,7 @@ func csvToArray(filePath string) ([]DailyCompanyRateModel, []string, error) {
 			SHARES:    parseFloat(word[16]),
 			DATE:      date,
 		}
+		codes = append(codes, code)
 		rows = append(rows, vers)
 	}
 
