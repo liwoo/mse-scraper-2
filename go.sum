@@ -1,2 +1,6 @@
 github.com/joho/godotenv v1.4.0 h1:3l4+N6zfMWnkbPEXKng2o2/MR5mSwTrBih4ZEkkz1lg=
 github.com/joho/godotenv v1.4.0/go.mod h1:f4LDr5Voq0i2e/R5DDNOoa2zzDfwtkZa6DnEwAbqwq4=
+github.com/pdftables/go-pdftables-api v0.0.0-20200611120021-86b37f9568af h1:gDcnP3s0xvXT4ve1v/RXFX5ZCEQQHXLSG0+kMCTrr08=
+github.com/pdftables/go-pdftables-api v0.0.0-20200611120021-86b37f9568af/go.mod h1:VskESGwAQa6YxzcRNAA+nidywqojAc69kqWxeTd0tjY=
+github.com/sirsean/go-pool v0.0.0-20170808185629-2b94e61c3882 h1:Hfk3NlifRHRY6IfTEFkVbnx9b4nqpy/SAP/RZp0ZHX8=
+github.com/sirsean/go-pool v0.0.0-20170808185629-2b94e61c3882/go.mod h1:8my6eNX1qRebDSxEeo9Pob2eZZLWiuo/pKzQwRAg4iQ=

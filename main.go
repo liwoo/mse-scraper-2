@@ -20,8 +20,10 @@ func main() {
 
 	queueSize, queueSizeError := strconv.Atoi(envs["QUEUE_SIZE"])
 	workerNum, workerNumError := strconv.Atoi(envs["WORKER_NUM"])
+	pdfStartNo, pdfStartNoError := strconv.Atoi(envs["PDF_START_NO"])
+	pdfEndNo, pdfEndNoError := strconv.Atoi(envs["PDF_END_NO"])
 
-	if queueSizeError != nil || workerNumError != nil {
+	if queueSizeError != nil || workerNumError != nil || pdfStartNoError != nil || pdfEndNoError != nil {
 		log.Panicf("Cannot convert Queue Size or Worker Nums to Int")
 	}
 
@@ -35,8 +37,8 @@ func main() {
 		envs["CLEANED_JSON_PATH"],
 		queueSize,
 		workerNum,
-		envs["PDF_START_NO"],
-		envs["PDF_END_NO"])
+		pdfStartNo,
+		pdfEndNo)
 
 	switch mode {
 	case "download":
