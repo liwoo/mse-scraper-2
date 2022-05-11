@@ -35,6 +35,7 @@ func main() {
 		envs["PDFTABLES_API_KEY"],
 		envs["CLEANED_CSV_PATH"],
 		envs["CLEANED_JSON_PATH"],
+		envs["DB_CONNECTION_STRING"],
 		queueSize,
 		workerNum,
 		pdfStartNo,
