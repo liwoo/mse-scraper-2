@@ -7,10 +7,15 @@ import (
 
 	"mseScraping/cleaner"
 	"mseScraping/downloader"
+	"mseScraping/saver"
 	"mseScraping/utils"
 
+	"database/sql"
 	"github.com/pdftables/go-pdftables-api/pkg/client"
 	"github.com/sirsean/go-pool"
+	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect/pgdialect"
+	"github.com/uptrace/bun/driver/pgdriver"
 )
 
 var clientCSV client.Client
@@ -23,6 +28,7 @@ func CreateScraper(
 	apiKey string,
 	cleanedCSVPath string,
 	cleanedJsonPath string,
+	dbConnectionString string,
 	queueSize int,
 	workerNum int,
 	pdfStartNum int,
@@ -42,6 +48,7 @@ func CreateScraper(
 		WorkerNum:           workerNum,
 		PdfStartNum:         pdfStartNum,
 		PdfEndNum:           pdfEndNum,
+		DBConnectionString:  dbConnectionString,
 	}
 }
 
@@ -57,6 +64,7 @@ type Scraper struct {
 	WorkerNum           int
 	PdfStartNum         int
 	PdfEndNum           int
+	DBConnectionString  string
 }
 
 func (s *Scraper) Download() {
@@ -100,8 +108,8 @@ func (s *Scraper) Clean() {
 
 	for _, file := range files {
 		p.Add(cleaner.MSECsvCleaner{
-			FileUrl: file,
-			ErrorPath: s.ErrorPath,
+			FileUrl:      file,
+			ErrorPath:    s.ErrorPath,
 			CleanCsvPath: s.CleanedCSVPath,
 		})
 	}
@@ -111,4 +119,28 @@ func (s *Scraper) Clean() {
 
 func (s *Scraper) Save() {
 	fmt.Println("Saving to Database from... ", s.CleanedJsonPath)
+	p := pool.NewPool(s.QueueSize, s.WorkerNum)
+
+	var pgconn *pgdriver.Connector = pgdriver.NewConnector(pgdriver.WithDSN(s.DBConnectionString))
+	// pgconn.Config().TLSConfig = nil
+	psdb := sql.OpenDB(pgconn)
+	db := bun.NewDB(psdb, pgdialect.New())
+
+	p.Start()
+
+	files, err := utils.GetAllCsvFiles(s.CleanedCSVPath)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, file := range files {
+		p.Add(saver.MSESaver{
+			FileUrl:   file,
+			ErrorPath: s.ErrorPath,
+			Db:        db,
+		})
+	}
+
+	p.Close()
 }
