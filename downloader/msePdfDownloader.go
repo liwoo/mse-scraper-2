@@ -19,7 +19,11 @@ type MSEPdfDownloader struct {
 }
 
 func nonStandardDailyReport(size int64) bool {
-	return size < 49000 || size > 80000
+	//32000 - 36000 are the new format
+	//14000 - 16000 are the old format
+	//TODO: We might need to check if we are dealing with
+	//the old or new format
+	return size < 32000 || size > 200000
 }
 
 func (m MSEPdfDownloader) Perform() {
