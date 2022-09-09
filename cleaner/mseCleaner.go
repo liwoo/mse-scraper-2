@@ -1,7 +1,6 @@
 package cleaner
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/csv"
 	"errors"
@@ -72,76 +71,70 @@ func (u MSECsvCleaner) Perform() {
 
 func Clean(csvFile string, errorPath string, cleanCSVPath string) CleanedData {
 	fmt.Println("Cleaning file: ", csvFile)
-	var csvRaw []string
 	var rates []DailyCompanyRate
 	var errors []string
 	var date string
 	docNum := getDocName(csvFile)
 
-	file, err := os.Open(csvFile)
-
-	if err != nil {
-		log.Fatalf("failed to open file")
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	scanner.Split(bufio.ScanLines)
-
-	var i int16 = 0
-
-	for scanner.Scan() {
-		//do work
-		line := scanner.Text()
-		if i == 8 {
-			d, err := GetDate(line, docNum)
-			if err != nil {
-				errors = append(errors, err.Error())
-			}
-			date = d
-		}
-
-		if i > 26 && i < 43 {
-			csvRaw = append(csvRaw, line)
-		}
-
-		i += 1
-	}
-
-	b := []byte(strings.Join(csvRaw, "\n"))
-
-	r := csv.NewReader(bytes.NewBuffer(b))
-	records, err := r.ReadAll()
+	fileBytes, err := os.ReadFile(csvFile)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	dateRegex, err := regexp.Compile("As On Date:.*")
+	if err != nil {
+		log.Fatal(err, csvFile)
+	}
+
+	for _, match := range dateRegex.FindAllString(string(fileBytes), -1) {
+		d, err := GetDate(match, docNum)
+		if err != nil {
+			errors = append(errors, err.Error())
+		}
+		date = d
+	}
+
+	dataRegex, err := regexp.Compile("Daily(?s)(.*)(?:Indices)")
+	if err != nil {
+		log.Fatal(err, csvFile)
+	}
+
+	r := csv.NewReader(bytes.NewBuffer(dataRegex.Find(fileBytes)))
+	r.FieldsPerRecord = -1
+	records, err := r.ReadAll()
+
+	if err != nil {
+		log.Fatal(csvFile, err)
+	}
 	var rate DailyCompanyRate
-	for _, word := range records {
-		if len(word) == 17 {
-			_, err := Verify(word)
-			if err != nil {
-				errors = append(errors, err.Error())
+	for i, word := range records {
+		fmt.Println(len(records), i, len(records)-1, i > 3 && i < (len(records)-2), word)
+		if isInt(word[0]) {
+			if len(word) == 17 {
+				_, err := Verify(word)
+				if err != nil {
+					errors = append(errors, err.Error())
+				}
+				rate.NO = strings.TrimSpace(word[0])
+				rate.HIGH = strings.TrimSpace(word[1])
+				rate.LOW = strings.TrimSpace(word[2])
+				rate.CODE = strings.TrimSpace(word[3])
+				rate.BUY = parseFloat(strings.TrimSpace(word[4]))
+				rate.SELL = parseFloat(strings.TrimSpace(word[5]))
+				rate.PCP = parseFloat(strings.TrimSpace(word[6]))
+				rate.TCP = parseFloat(strings.TrimSpace(word[7]))
+				rate.VOL = parseFloat(strings.TrimSpace(word[8]))
+				rate.DIVNET = parseFloat(strings.TrimSpace(word[9]))
+				rate.DIVYIELD = parseFloat(strings.TrimSpace(word[10]))
+				rate.EEARNYIELD = parseFloat(strings.TrimSpace(word[11]))
+				rate.PERATIO = parseFloat(strings.TrimSpace(word[12]))
+				rate.PBVRATION = parseFloat(strings.TrimSpace(word[13]))
+				rate.CAP = parseFloat(strings.TrimSpace(word[14]))
+				rate.PROFIT = parseFloat(strings.TrimSpace(word[15]))
+				rate.SHARES = parseFloat(strings.TrimSpace(word[16]))
+				rates = append(rates, rate)
 			}
-			rate.NO = strings.TrimSpace(word[0])
-			rate.HIGH = strings.TrimSpace(word[1])
-			rate.LOW = strings.TrimSpace(word[2])
-			rate.CODE = strings.TrimSpace(word[3])
-			rate.BUY = parseFloat(strings.TrimSpace(word[4]))
-			rate.SELL = parseFloat(strings.TrimSpace(word[5]))
-			rate.PCP = parseFloat(strings.TrimSpace(word[6]))
-			rate.TCP = parseFloat(strings.TrimSpace(word[7]))
-			rate.VOL = parseFloat(strings.TrimSpace(word[8]))
-			rate.DIVNET = parseFloat(strings.TrimSpace(word[9]))
-			rate.DIVYIELD = parseFloat(strings.TrimSpace(word[10]))
-			rate.EEARNYIELD = parseFloat(strings.TrimSpace(word[11]))
-			rate.PERATIO = parseFloat(strings.TrimSpace(word[12]))
-			rate.PBVRATION = parseFloat(strings.TrimSpace(word[13]))
-			rate.CAP = parseFloat(strings.TrimSpace(word[14]))
-			rate.PROFIT = parseFloat(strings.TrimSpace(word[15]))
-			rate.SHARES = parseFloat(strings.TrimSpace(word[16]))
-			rates = append(rates, rate)
 		}
 	}
 
@@ -161,9 +154,9 @@ func Clean(csvFile string, errorPath string, cleanCSVPath string) CleanedData {
 		for _, rate := range rates {
 			if err := w.Write([]string{
 				rate.NO, rate.HIGH, rate.LOW, rate.CODE,
-				fmt.Sprint(rate.BUY), fmt.Sprint(rate.SELL), fmt.Sprint(rate.PCP), fmt.Sprint(rate.TCP), fmt.Sprint(rate.VOL),
-				fmt.Sprint(rate.DIVNET), fmt.Sprint(rate.DIVYIELD), fmt.Sprint(rate.EEARNYIELD),
-				fmt.Sprint(rate.PERATIO), fmt.Sprint(rate.PBVRATION), fmt.Sprint(rate.CAP), fmt.Sprint(rate.PROFIT), fmt.Sprint(rate.SHARES)}); err != nil {
+				fmt.Sprintf("%.2f", rate.BUY), fmt.Sprintf("%.2f", rate.SELL), fmt.Sprintf("%.2f", rate.PCP), fmt.Sprintf("%.2f", rate.TCP), fmt.Sprintf("%.2f", rate.VOL),
+				fmt.Sprintf("%.2f", rate.DIVNET), fmt.Sprintf("%.2f", rate.DIVYIELD), fmt.Sprintf("%.2f", rate.EEARNYIELD),
+				fmt.Sprintf("%.2f", rate.PERATIO), fmt.Sprintf("%.2f", rate.PBVRATION), fmt.Sprintf("%.2f", rate.CAP), fmt.Sprintf("%.2f", rate.PROFIT), fmt.Sprintf("%.2f", rate.SHARES)}); err != nil {
 				log.Fatalln("error writing record to csv:", err)
 			}
 		}
@@ -185,7 +178,9 @@ func Clean(csvFile string, errorPath string, cleanCSVPath string) CleanedData {
 }
 
 func logErrors(errors []string, path string, date string) {
-	f, err := os.Create(fmt.Sprintf("%s%s-error.txt", path, strings.ReplaceAll(date, "/", "-")))
+	filePath := fmt.Sprintf("%s%s-error.txt", path, strings.ReplaceAll(date, "/", "-"))
+	fmt.Println(filePath, path, date)
+	f, err := os.Create(filePath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -214,6 +209,11 @@ func parseFloat(value string) float64 {
 		return 0
 	}
 	return f
+}
+
+func isInt(value string) bool {
+	_, err := strconv.ParseInt(value, 10, 8)
+	return err == nil
 }
 
 func Verify(rate []string) (bool, error) {
@@ -267,6 +267,5 @@ func checkDateFormat(date string) string {
 }
 
 func getDocName(fileName string) string {
-	segs := strings.Split(fileName, ".")
-	return segs[0]
+	return filepath.Base(fileName)
 }
