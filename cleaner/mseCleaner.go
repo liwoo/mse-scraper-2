@@ -1,7 +1,6 @@
 package cleaner
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/csv"
 	"errors"
@@ -64,106 +63,107 @@ func GetAllFilesToClean(dir string) ([]string, error) {
 }
 
 func (u MSECsvCleaner) Perform() {
-	data := Clean(u.FileUrl, u.ErrorPath, u.CleanCsvPath)
-	if len(data.errors) > 0 {
-		log.Fatalln("Cleaner has errors, ", data.errors)
+	data, err := Clean(u.FileUrl, u.ErrorPath, u.CleanCsvPath)
+	if err != nil {
+		log.Println(err)
+	} else {
+		if len(data.errors) > 0 {
+			log.Println("Cleaner has errors, ", data.errors)
+		}
 	}
 }
 
-func Clean(csvFile string, errorPath string, cleanCSVPath string) CleanedData {
+func Clean(csvFile string, errorPath string, cleanCSVPath string) (*CleanedData, error) {
 	fmt.Println("Cleaning file: ", csvFile)
-	var csvRaw []string
 	var rates []DailyCompanyRate
-	var errors []string
+	var cleaningErrors []string
 	var date string
 	docNum := getDocName(csvFile)
 
-	file, err := os.Open(csvFile)
+	fileBytes, err := os.ReadFile(csvFile)
 
 	if err != nil {
-		log.Fatalf("failed to open file")
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	scanner.Split(bufio.ScanLines)
-
-	var i int16 = 0
-
-	for scanner.Scan() {
-		//do work
-		line := scanner.Text()
-		if i == 8 {
-			d, err := GetDate(line, docNum)
-			if err != nil {
-				errors = append(errors, err.Error())
-			}
-			date = d
-		}
-
-		if i > 26 && i < 43 {
-			csvRaw = append(csvRaw, line)
-		}
-
-		i += 1
+		return nil, err
 	}
 
-	b := []byte(strings.Join(csvRaw, "\n"))
+	dateRegex, err := regexp.Compile("As On Date:.*")
+	if err != nil {
+		log.Fatal(err, csvFile)
+	}
 
-	r := csv.NewReader(bytes.NewBuffer(b))
+	for _, match := range dateRegex.FindAllString(string(fileBytes), -1) {
+		d, err := GetDate(match, docNum)
+		if err != nil {
+			cleaningErrors = append(cleaningErrors, err.Error())
+		}
+		date = d
+	}
+
+	dataRegex, err := regexp.Compile("Daily(?s)(.*)(?:Indices)")
+	if err != nil {
+		return nil, errors.New(fmt.Sprint(csvFile, err))
+	}
+
+	r := csv.NewReader(bytes.NewBuffer(dataRegex.Find(fileBytes)))
+	r.FieldsPerRecord = -1
+	r.LazyQuotes = true
 	records, err := r.ReadAll()
 
 	if err != nil {
-		log.Fatal(err)
+		return nil, errors.New(fmt.Sprint(csvFile, err))
 	}
-
 	var rate DailyCompanyRate
 	for _, word := range records {
-		if len(word) == 17 {
-			_, err := Verify(word)
-			if err != nil {
-				errors = append(errors, err.Error())
+		if isInt(word[0]) {
+			if len(word) == 17 {
+				_, err := Verify(word)
+				if err != nil {
+					cleaningErrors = append(cleaningErrors, err.Error())
+				}
+				rate.NO = strings.TrimSpace(word[0])
+				rate.HIGH = strings.TrimSpace(word[1])
+				rate.LOW = strings.TrimSpace(word[2])
+				rate.CODE = strings.TrimSpace(word[3])
+				rate.BUY = parseFloat(strings.TrimSpace(word[4]))
+				rate.SELL = parseFloat(strings.TrimSpace(word[5]))
+				rate.PCP = parseFloat(strings.TrimSpace(word[6]))
+				rate.TCP = parseFloat(strings.TrimSpace(word[7]))
+				rate.VOL = parseFloat(strings.TrimSpace(word[8]))
+				rate.DIVNET = parseFloat(strings.TrimSpace(word[9]))
+				rate.DIVYIELD = parseFloat(strings.TrimSpace(word[10]))
+				rate.EEARNYIELD = parseFloat(strings.TrimSpace(word[11]))
+				rate.PERATIO = parseFloat(strings.TrimSpace(word[12]))
+				rate.PBVRATION = parseFloat(strings.TrimSpace(word[13]))
+				rate.CAP = parseFloat(strings.TrimSpace(word[14]))
+				rate.PROFIT = parseFloat(strings.TrimSpace(word[15]))
+				rate.SHARES = parseFloat(strings.TrimSpace(word[16]))
+				rates = append(rates, rate)
 			}
-			rate.NO = strings.TrimSpace(word[0])
-			rate.HIGH = strings.TrimSpace(word[1])
-			rate.LOW = strings.TrimSpace(word[2])
-			rate.CODE = strings.TrimSpace(word[3])
-			rate.BUY = parseFloat(strings.TrimSpace(word[4]))
-			rate.SELL = parseFloat(strings.TrimSpace(word[5]))
-			rate.PCP = parseFloat(strings.TrimSpace(word[6]))
-			rate.TCP = parseFloat(strings.TrimSpace(word[7]))
-			rate.VOL = parseFloat(strings.TrimSpace(word[8]))
-			rate.DIVNET = parseFloat(strings.TrimSpace(word[9]))
-			rate.DIVYIELD = parseFloat(strings.TrimSpace(word[10]))
-			rate.EEARNYIELD = parseFloat(strings.TrimSpace(word[11]))
-			rate.PERATIO = parseFloat(strings.TrimSpace(word[12]))
-			rate.PBVRATION = parseFloat(strings.TrimSpace(word[13]))
-			rate.CAP = parseFloat(strings.TrimSpace(word[14]))
-			rate.PROFIT = parseFloat(strings.TrimSpace(word[15]))
-			rate.SHARES = parseFloat(strings.TrimSpace(word[16]))
-			rates = append(rates, rate)
 		}
 	}
 
-	if len(errors) > 0 {
+	if len(cleaningErrors) > 0 {
 		affected := fmt.Sprintf("File: %q", csvFile)
-		errors = append([]string{affected}, errors...)
-		logErrors(errors, errorPath, date)
+		cleaningErrors = append([]string{affected}, cleaningErrors...)
+		err := logErrors(cleaningErrors, errorPath, date)
+		if err != nil {
+			fmt.Println(csvFile, err)
+		}
 	}
 
-	func() {
+	err = func() error {
 		file, err := os.Create(fmt.Sprintf("%s%s.csv", cleanCSVPath, strings.ReplaceAll(date, "/", "-")))
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		defer file.Close()
 		w := csv.NewWriter(file)
 		for _, rate := range rates {
 			if err := w.Write([]string{
 				rate.NO, rate.HIGH, rate.LOW, rate.CODE,
-				fmt.Sprint(rate.BUY), fmt.Sprint(rate.SELL), fmt.Sprint(rate.PCP), fmt.Sprint(rate.TCP), fmt.Sprint(rate.VOL),
-				fmt.Sprint(rate.DIVNET), fmt.Sprint(rate.DIVYIELD), fmt.Sprint(rate.EEARNYIELD),
-				fmt.Sprint(rate.PERATIO), fmt.Sprint(rate.PBVRATION), fmt.Sprint(rate.CAP), fmt.Sprint(rate.PROFIT), fmt.Sprint(rate.SHARES)}); err != nil {
+				fmt.Sprintf("%.2f", rate.BUY), fmt.Sprintf("%.2f", rate.SELL), fmt.Sprintf("%.2f", rate.PCP), fmt.Sprintf("%.2f", rate.TCP), fmt.Sprintf("%.2f", rate.VOL),
+				fmt.Sprintf("%.2f", rate.DIVNET), fmt.Sprintf("%.2f", rate.DIVYIELD), fmt.Sprintf("%.2f", rate.EEARNYIELD),
+				fmt.Sprintf("%.2f", rate.PERATIO), fmt.Sprintf("%.2f", rate.PBVRATION), fmt.Sprintf("%.2f", rate.CAP), fmt.Sprintf("%.2f", rate.PROFIT), fmt.Sprintf("%.2f", rate.SHARES)}); err != nil {
 				log.Fatalln("error writing record to csv:", err)
 			}
 		}
@@ -171,29 +171,39 @@ func Clean(csvFile string, errorPath string, cleanCSVPath string) CleanedData {
 		w.Flush()
 
 		if err := w.Error(); err != nil {
-			log.Fatal(err)
+			return err
 		}
+
+		return nil
 	}()
+
+	if err != nil {
+		return nil, errors.New(fmt.Sprint(csvFile, err))
+	}
 
 	fmt.Println("Finished file: ", csvFile)
 
-	return CleanedData{
+	return &CleanedData{
 		dailyRates: rates,
 		date:       date,
-		errors:     errors,
-	}
+		errors:     cleaningErrors,
+	}, nil
 }
 
-func logErrors(errors []string, path string, date string) {
-	f, err := os.Create(fmt.Sprintf("%s%s-error.txt", path, strings.ReplaceAll(date, "/", "-")))
+func logErrors(errors []string, path string, date string) error {
+	filePath := fmt.Sprintf("%s%s-error.txt", path, strings.ReplaceAll(date, "/", "-"))
+	fmt.Println(filePath, path, date)
+	f, err := os.Create(filePath)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer f.Close()
 	_, err2 := f.WriteString(strings.Join(errors, "\n"))
 	if err2 != nil {
-		log.Fatal(err)
+		return err
 	}
+
+	return nil
 }
 
 func parseFloat(value string) float64 {
@@ -214,6 +224,11 @@ func parseFloat(value string) float64 {
 		return 0
 	}
 	return f
+}
+
+func isInt(value string) bool {
+	_, err := strconv.ParseInt(value, 10, 8)
+	return err == nil
 }
 
 func Verify(rate []string) (bool, error) {
@@ -245,7 +260,6 @@ func GetDate(line string, docNum string) (string, error) {
 		if isEmpty(match) {
 			return docNum, errors.New("could not find date match in string")
 		}
-		fmt.Println(match)
 		t, err := time.Parse(checkDateFormat(match), match)
 		if err != nil {
 			fmt.Println(err)
@@ -267,6 +281,5 @@ func checkDateFormat(date string) string {
 }
 
 func getDocName(fileName string) string {
-	segs := strings.Split(fileName, ".")
-	return segs[0]
+	return filepath.Base(fileName)
 }
