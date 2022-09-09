@@ -106,6 +106,7 @@ func Clean(csvFile string, errorPath string, cleanCSVPath string) (*CleanedData,
 
 	r := csv.NewReader(bytes.NewBuffer(dataRegex.Find(fileBytes)))
 	r.FieldsPerRecord = -1
+	r.LazyQuotes = true
 	records, err := r.ReadAll()
 
 	if err != nil {
