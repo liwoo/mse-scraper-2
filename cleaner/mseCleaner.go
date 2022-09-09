@@ -63,23 +63,27 @@ func GetAllFilesToClean(dir string) ([]string, error) {
 }
 
 func (u MSECsvCleaner) Perform() {
-	data := Clean(u.FileUrl, u.ErrorPath, u.CleanCsvPath)
-	if len(data.errors) > 0 {
-		log.Fatalln("Cleaner has errors, ", data.errors)
+	data, err := Clean(u.FileUrl, u.ErrorPath, u.CleanCsvPath)
+	if err != nil {
+		log.Println(err)
+	} else {
+		if len(data.errors) > 0 {
+			log.Println("Cleaner has errors, ", data.errors)
+		}
 	}
 }
 
-func Clean(csvFile string, errorPath string, cleanCSVPath string) CleanedData {
+func Clean(csvFile string, errorPath string, cleanCSVPath string) (*CleanedData, error) {
 	fmt.Println("Cleaning file: ", csvFile)
 	var rates []DailyCompanyRate
-	var errors []string
+	var cleaningErrors []string
 	var date string
 	docNum := getDocName(csvFile)
 
 	fileBytes, err := os.ReadFile(csvFile)
 
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	dateRegex, err := regexp.Compile("As On Date:.*")
@@ -90,14 +94,14 @@ func Clean(csvFile string, errorPath string, cleanCSVPath string) CleanedData {
 	for _, match := range dateRegex.FindAllString(string(fileBytes), -1) {
 		d, err := GetDate(match, docNum)
 		if err != nil {
-			errors = append(errors, err.Error())
+			cleaningErrors = append(cleaningErrors, err.Error())
 		}
 		date = d
 	}
 
 	dataRegex, err := regexp.Compile("Daily(?s)(.*)(?:Indices)")
 	if err != nil {
-		log.Fatal(err, csvFile)
+		return nil, errors.New(fmt.Sprint(csvFile, err))
 	}
 
 	r := csv.NewReader(bytes.NewBuffer(dataRegex.Find(fileBytes)))
@@ -105,16 +109,15 @@ func Clean(csvFile string, errorPath string, cleanCSVPath string) CleanedData {
 	records, err := r.ReadAll()
 
 	if err != nil {
-		log.Fatal(csvFile, err)
+		return nil, errors.New(fmt.Sprint(csvFile, err))
 	}
 	var rate DailyCompanyRate
-	for i, word := range records {
-		fmt.Println(len(records), i, len(records)-1, i > 3 && i < (len(records)-2), word)
+	for _, word := range records {
 		if isInt(word[0]) {
 			if len(word) == 17 {
 				_, err := Verify(word)
 				if err != nil {
-					errors = append(errors, err.Error())
+					cleaningErrors = append(cleaningErrors, err.Error())
 				}
 				rate.NO = strings.TrimSpace(word[0])
 				rate.HIGH = strings.TrimSpace(word[1])
@@ -138,16 +141,19 @@ func Clean(csvFile string, errorPath string, cleanCSVPath string) CleanedData {
 		}
 	}
 
-	if len(errors) > 0 {
+	if len(cleaningErrors) > 0 {
 		affected := fmt.Sprintf("File: %q", csvFile)
-		errors = append([]string{affected}, errors...)
-		logErrors(errors, errorPath, date)
+		cleaningErrors = append([]string{affected}, cleaningErrors...)
+		err := logErrors(cleaningErrors, errorPath, date)
+		if err != nil {
+			fmt.Println(csvFile, err)
+		}
 	}
 
-	func() {
+	err = func() error {
 		file, err := os.Create(fmt.Sprintf("%s%s.csv", cleanCSVPath, strings.ReplaceAll(date, "/", "-")))
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		defer file.Close()
 		w := csv.NewWriter(file)
@@ -164,31 +170,39 @@ func Clean(csvFile string, errorPath string, cleanCSVPath string) CleanedData {
 		w.Flush()
 
 		if err := w.Error(); err != nil {
-			log.Fatal(err)
+			return err
 		}
+
+		return nil
 	}()
+
+	if err != nil {
+		return nil, errors.New(fmt.Sprint(csvFile, err))
+	}
 
 	fmt.Println("Finished file: ", csvFile)
 
-	return CleanedData{
+	return &CleanedData{
 		dailyRates: rates,
 		date:       date,
-		errors:     errors,
-	}
+		errors:     cleaningErrors,
+	}, nil
 }
 
-func logErrors(errors []string, path string, date string) {
+func logErrors(errors []string, path string, date string) error {
 	filePath := fmt.Sprintf("%s%s-error.txt", path, strings.ReplaceAll(date, "/", "-"))
 	fmt.Println(filePath, path, date)
 	f, err := os.Create(filePath)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer f.Close()
 	_, err2 := f.WriteString(strings.Join(errors, "\n"))
 	if err2 != nil {
-		log.Fatal(err)
+		return err
 	}
+
+	return nil
 }
 
 func parseFloat(value string) float64 {
@@ -245,7 +259,6 @@ func GetDate(line string, docNum string) (string, error) {
 		if isEmpty(match) {
 			return docNum, errors.New("could not find date match in string")
 		}
-		fmt.Println(match)
 		t, err := time.Parse(checkDateFormat(match), match)
 		if err != nil {
 			fmt.Println(err)
