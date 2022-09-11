@@ -162,9 +162,9 @@ func Clean(csvFile string, errorPath string, cleanCSVPath string) (*CleanedData,
 		w := csv.NewWriter(file)
 		for _, rate := range rates {
 			if err := w.Write([]string{
-				rate.NO, fmt.Sprintf("%.2f", rate.HIGH), fmt.Sprintf("%.2f", rate.LOW), rate.CODE,
+				rate.NO, fmt.Sprint(rate.HIGH), fmt.Sprint(rate.LOW), rate.CODE,
 				fmt.Sprintf("%.2f", rate.BUY), fmt.Sprintf("%.2f", rate.SELL), fmt.Sprintf("%.2f", rate.PCP), fmt.Sprintf("%.2f", rate.TCP), fmt.Sprintf("%.2f", rate.VOL),
-				fmt.Sprintf("%.2f", rate.DIVNET), fmt.Sprintf("%.2f", rate.DIVYIELD), fmt.Sprintf("%.2f", rate.EEARNYIELD),
+				fmt.Sprint(rate.DIVNET), fmt.Sprint(rate.DIVYIELD), fmt.Sprintf("%.2f", rate.EEARNYIELD),
 				fmt.Sprintf("%.2f", rate.PERATIO), fmt.Sprintf("%.2f", rate.PBVRATION), fmt.Sprintf("%.2f", rate.CAP), fmt.Sprintf("%.2f", rate.PROFIT), fmt.Sprintf("%.2f", rate.SHARES)}); err != nil {
 				log.Fatalln("error writing record to csv:", err)
 			}
