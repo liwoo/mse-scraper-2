@@ -88,7 +88,7 @@ func Clean(csvFile string, errorPath string, cleanCSVPath string) (*CleanedData,
 
 	dateRegex, err := regexp.Compile("As On Date:.*")
 	if err != nil {
-		log.Fatal(err, csvFile)
+		return nil, err
 	}
 
 	for _, match := range dateRegex.FindAllString(string(fileBytes), -1) {
