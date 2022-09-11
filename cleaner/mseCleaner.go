@@ -15,23 +15,23 @@ import (
 )
 
 type DailyCompanyRate struct {
-	NO         string  `json:"no"`
-	HIGH       string  `json:"high"`
-	LOW        string  `json:"low"`
-	CODE       string  `json:"code"`
-	BUY        float64 `json:"buy"`
-	SELL       float64 `json:"sell"`
-	PCP        float64 `json:"pcp"`
-	TCP        float64 `json:"tcp"`
-	VOL        float64 `json:"vol"`
-	DIVNET     float64 `json:"div_net"`
-	DIVYIELD   float64 `json:"div_yield"`
-	EEARNYIELD float64 `json:"earn_yield"`
-	PERATIO    float64 `json:"pe_ratio"`
-	PBVRATION  float64 `json:"pbv_ratio"`
-	CAP        float64 `json:"cap"`
-	PROFIT     float64 `json:"profit"`
-	SHARES     float64 `json:"shares"`
+	NO         string  `json:"no" required:"true"`
+	HIGH       string  `json:"high" required:"false"`
+	LOW        string  `json:"low" required:"false"` // required true for everything else
+	CODE       string  `json:"code" required:"true"`
+	BUY        float64 `json:"buy" required:"false"`
+	SELL       float64 `json:"sell" required:"false"`
+	PCP        float64 `json:"pcp" required:"true"`
+	TCP        float64 `json:"tcp" required:"true"`
+	VOL        float64 `json:"vol" required:"true"`
+	DIVNET     float64 `json:"div_net" required:"false"`
+	DIVYIELD   float64 `json:"div_yield" required:"false"`
+	EEARNYIELD float64 `json:"earn_yield" required:"true"`
+	PERATIO    float64 `json:"pe_ratio" required:"true"`
+	PBVRATION  float64 `json:"pbv_ratio" required:"true"`
+	CAP        float64 `json:"cap" required:"true"`
+	PROFIT     float64 `json:"profit" required:"true"`
+	SHARES     float64 `json:"shares" required:"true"`
 }
 
 type CleanedData struct {
