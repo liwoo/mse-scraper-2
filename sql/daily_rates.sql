@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS public.companies
     mse_code character varying(10) COLLATE pg_catalog."default" NOT NULL,
     name character varying(150) COLLATE pg_catalog."default",
     CONSTRAINT companies_pkey PRIMARY KEY (mse_code)
-)
+);
 
 CREATE TABLE IF NOT EXISTS public.daily_company_rates
 (
@@ -29,6 +29,6 @@ CREATE TABLE IF NOT EXISTS public.daily_company_rates
     shares bigint,
     date date NOT NULL,
     CONSTRAINT daily_company_rates_pkey PRIMARY KEY (id)
-)
+);
 
 END;
