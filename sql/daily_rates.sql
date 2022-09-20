@@ -24,8 +24,8 @@ CREATE TABLE IF NOT EXISTS public.daily_company_rates
     earn_yield numeric,
     pe_ratio numeric,
     pbv_ratio numeric,
-    cap money,
-    profit money,
+    cap numeric,
+    profit numeric,
     shares bigint,
     date date NOT NULL,
     CONSTRAINT daily_company_rates_pkey PRIMARY KEY (id)

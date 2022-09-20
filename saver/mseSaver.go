@@ -102,7 +102,7 @@ func csvToArray(filePath string) ([]DailyCompanyRateModel, []string, error) {
 			PBVRATION: parseFloat(word[13]),
 			CAP:       parseFloat(word[14]),
 			PROFIT:    parseFloat(word[15]),
-			SHARES:    parseFloat(word[16]),
+			SHARES:    parseInt(word[16]),
 			DATE:      date,
 		}
 		codes = append(codes, code)

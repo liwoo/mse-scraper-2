@@ -9,6 +9,7 @@ import (
 	"mseScraping/downloader"
 	"mseScraping/saver"
 	"mseScraping/utils"
+	"mseScraping/dbCleaner"
 
 	"database/sql"
 	"github.com/pdftables/go-pdftables-api/pkg/client"
@@ -141,6 +142,21 @@ func (s *Scraper) Save() {
 			Db:        db,
 		})
 	}
+
+	p.Close()
+}
+
+func (s *Scraper) CleanDb() {
+	fmt.Println("Saving to Database from... ", s.CleanedJsonPath)
+	p := pool.NewPool(s.QueueSize, s.WorkerNum)
+
+	var pgconn *pgdriver.Connector = pgdriver.NewConnector(pgdriver.WithDSN(s.DBConnectionString))
+	psdb := sql.OpenDB(pgconn)
+	db := bun.NewDB(psdb, pgdialect.New())
+
+	p.Start()
+
+	dbCleaner.CleanDatabase(db)
 
 	p.Close()
 }
