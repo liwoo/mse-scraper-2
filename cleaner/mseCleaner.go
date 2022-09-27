@@ -114,33 +114,31 @@ func Clean(csvFile string, errorPath string, cleanCSVPath string) (*CleanedData,
 	}
 	var rate DailyCompanyRate
 	for i, word := range records {
-		if isInt(word[0]) {
-			if len(word) == 17 {
-				rate.NO = strings.TrimSpace(word[0])
-				rate.HIGH = parseFloat(strings.TrimSpace(word[1]))
-				rate.LOW = parseFloat(strings.TrimSpace(word[2]))
-				rate.CODE = strings.TrimSpace(word[3])
-				rate.BUY = parseFloat(strings.TrimSpace(word[4]))
-				rate.SELL = parseFloat(strings.TrimSpace(word[5]))
-				rate.PCP = parseFloat(strings.TrimSpace(word[6]))
-				rate.TCP = parseFloat(strings.TrimSpace(word[7]))
-				rate.VOL = parseFloat(strings.TrimSpace(word[8]))
-				rate.DIVNET = parseFloat(strings.TrimSpace(word[9]))
-				rate.DIVYIELD = parseFloat(strings.TrimSpace(word[10]))
-				rate.EEARNYIELD = parseFloat(strings.TrimSpace(word[11]))
-				rate.PERATIO = parseFloat(strings.TrimSpace(word[12]))
-				rate.PBVRATION = parseFloat(strings.TrimSpace(word[13]))
-				rate.CAP = parseFloat(strings.TrimSpace(word[14]))
-				rate.PROFIT = parseFloat(strings.TrimSpace(word[15]))
-				rate.SHARES = parseFloat(strings.TrimSpace(word[16]))
+		if isInt(word[0]) && len(word) == 17 {
+			rate.NO = strings.TrimSpace(word[0])
+			rate.HIGH = parseFloat(strings.TrimSpace(word[1]))
+			rate.LOW = parseFloat(strings.TrimSpace(word[2]))
+			rate.CODE = strings.TrimSpace(word[3])
+			rate.BUY = parseFloat(strings.TrimSpace(word[4]))
+			rate.SELL = parseFloat(strings.TrimSpace(word[5]))
+			rate.PCP = parseFloat(strings.TrimSpace(word[6]))
+			rate.TCP = parseFloat(strings.TrimSpace(word[7]))
+			rate.VOL = parseFloat(strings.TrimSpace(word[8]))
+			rate.DIVNET = parseFloat(strings.TrimSpace(word[9]))
+			rate.DIVYIELD = parseFloat(strings.TrimSpace(word[10]))
+			rate.EEARNYIELD = parseFloat(strings.TrimSpace(word[11]))
+			rate.PERATIO = parseFloat(strings.TrimSpace(word[12]))
+			rate.PBVRATION = parseFloat(strings.TrimSpace(word[13]))
+			rate.CAP = parseFloat(strings.TrimSpace(word[14]))
+			rate.PROFIT = parseFloat(strings.TrimSpace(word[15]))
+			rate.SHARES = parseFloat(strings.TrimSpace(word[16]))
 
-				_, err := Verify(rate)
-				if err != nil {
-					cleaningErrors = append(cleaningErrors, fmt.Sprintf("line: %d, number: %q {\n %s \n}", i, word[0], err.Error()))
-				}
-
-				rates = append(rates, rate)
+			_, err := Verify(rate)
+			if err != nil {
+				cleaningErrors = append(cleaningErrors, fmt.Sprintf("line: %d, number: %q {\n %s \n}", i, word[0], err.Error()))
 			}
+
+			rates = append(rates, rate)
 		}
 	}
 
