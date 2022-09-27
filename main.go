@@ -48,6 +48,8 @@ func main() {
 		scraper.Clean()
 	case "save":
 		scraper.Save()
+	case "cleanDb":
+		scraper.CleanDb()
 	default:
 		log.Fatal("Please Enter the Necessary Flag (e.g. -download)", mode)
 	}

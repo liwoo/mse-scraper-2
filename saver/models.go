@@ -22,7 +22,7 @@ type DailyCompanyRateModel struct {
 	PBVRATION float64 `bun:"pbv_ratio"`
 	CAP       float64
 	PROFIT    float64
-	SHARES    float64
+	SHARES    int64
 	DATE      string
 }
 
