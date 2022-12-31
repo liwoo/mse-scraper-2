@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"mseScraping/pkg/conf"
+	"mseScraping/utils"
 	"net/http"
 	"os"
 
@@ -13,7 +14,7 @@ import (
 type HandleWithBody func(body any)
 
 type Server struct {
-	conf   conf.Conf
+	Conf   conf.Conf
 	Router *chi.Mux
 }
 
@@ -33,14 +34,20 @@ func Build() Server {
 		fmt.Println(err)
 	}
 
+	initPaths(&config)
+
 	r := chi.NewRouter()
 	app := Server{
 		Router: r,
-		conf:   config,
+		Conf:   config,
 	}
 	return app
 }
 
+func initPaths(conf *conf.Conf) {
+	utils.EnsureDirsExist([]string{conf.PdfPath, conf.CleanedCSVPath, conf.ErrorPath, conf.CsvPath, conf.CleanedJsonPath})
+}
+
 func (app Server) Run() {
-	http.ListenAndServe(":"+app.conf.PORT, app.Router)
+	http.ListenAndServe(":"+app.Conf.Port, app.Router)
 }

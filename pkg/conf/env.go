@@ -32,8 +32,12 @@ func parseField(ref reflect.Value) error {
 		if !refField.CanSet() {
 			continue
 		}
-
-		value := os.Getenv(refTypeField.Name)
+		tag := refTypeField.Tag.Get("env")
+		var key = refTypeField.Name
+		if len(tag) > 0 {
+			key = tag
+		}
+		value := os.Getenv(key)
 		err := setField(refField, refTypeField, value)
 
 		if err != nil {
@@ -68,17 +72,24 @@ func setField(ref reflect.Value, refTypeField reflect.StructField, value string)
 		if err != nil {
 			return nil
 		}
-		fieldee.Set(reflect.ValueOf(i))
+		fieldee.Set(reflect.ValueOf(int(i)))
 		break
 	case reflect.Int64:
-		i, err := strconv.ParseInt(value, 10, 32)
+		i, err := strconv.ParseInt(value, 10, 64)
 		if err != nil {
 			return nil
 		}
 		fieldee.Set(reflect.ValueOf(i))
 		break
+	case reflect.Float32:
+		i, err := strconv.ParseFloat(value, 32)
+		if err != nil {
+			return nil
+		}
+		fieldee.Set(reflect.ValueOf(float32(i)))
+		break
 	case reflect.Float64:
-		i, err := strconv.ParseInt(value, 10, 32)
+		i, err := strconv.ParseFloat(value, 64)
 		if err != nil {
 			return nil
 		}

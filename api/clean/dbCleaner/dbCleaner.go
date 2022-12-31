@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"mseScraping/saver"
+	"mseScraping/data"
 	"time"
 
 	"github.com/uptrace/bun"
@@ -12,7 +12,7 @@ import (
 
 func CleanDatabase(db *bun.DB) {
 	layout := "2006-01-02"
-	rates := []saver.DailyCompanyRateModel{}
+	rates := []data.DailyCompanyRateModel{}
 
 	err := db.NewSelect().Model(&rates).Where("buy = ?", -1).WhereOr("sell = ?", -1).Order("date ASC").Scan(context.Background())
 
@@ -29,7 +29,7 @@ func CleanDatabase(db *bun.DB) {
 		}
 
 		previousDate := date.AddDate(0, 0, -1)
-		previousRate := new(saver.DailyCompanyRateModel)
+		previousRate := new(data.DailyCompanyRateModel)
 		colErr := db.NewSelect().Model(previousRate).Where("date = ?", previousDate.Format(layout)).Where("code = ?", rate.CODE).Scan(context.Background())
 
 		if colErr != nil {
