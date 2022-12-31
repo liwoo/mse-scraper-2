@@ -10,9 +10,12 @@ import (
 	"mseScraping/utils"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"database/sql"
 
+	"github.com/gocolly/colly"
 	"github.com/pdftables/go-pdftables-api/pkg/client"
 	"github.com/sirsean/go-pool"
 	"github.com/uptrace/bun"
@@ -32,14 +35,40 @@ func DownloadRange(w http.ResponseWriter, r *http.Request, conf conf.Conf) {
 		return
 	}
 
-	download(conf, start, end)
-	clean(conf)
-	save(conf)
+	scrap(conf, start, end)
 	w.Write([]byte("Download Range"))
 }
 
 func DownloadDaily(w http.ResponseWriter, r *http.Request, conf conf.Conf) {
+	date := time.Now()
+	c := colly.NewCollector()
+	selector := fmt.Sprintf("td:contains(\"Daily %v %v %v\")", date.Day(), date.Month(), date.Year())
+	
+	c.OnHTML(selector, func(e *colly.HTMLElement) {
+		link := e.DOM.Parent().Find("a")
+		url, exists := link.Attr("href")
+		if !exists {
+			return
+		}
+		segs := strings.Split(url, "/")
+		numRaw := segs[len(segs)-1]
+		currentNumber, err := strconv.ParseInt(numRaw, 10, 32)
+
+		if err != nil {
+			return
+		}
+		fmt.Println("Daily report found: ", currentNumber)
+		scrap(conf, int(currentNumber), int(currentNumber))
+	})
+
+	c.Visit(conf.DownloadUrlTemplate)
 	w.Write([]byte("Download Daily"))
+}
+
+func scrap(conf conf.Conf, start int, end int) {
+	download(conf, start, end)
+	clean(conf)
+	save(conf)
 }
 
 func download(s conf.Conf, start int, end int) {
