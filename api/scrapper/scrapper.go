@@ -9,6 +9,7 @@ import (
 	"mseScraping/pkg/conf"
 	"mseScraping/utils"
 	"net/http"
+	"strconv"
 
 	"database/sql"
 
@@ -22,7 +23,16 @@ import (
 var clientCSV client.Client
 
 func DownloadRange(w http.ResponseWriter, r *http.Request, conf conf.Conf) {
-	download(conf)
+	start, err := strconv.Atoi(r.URL.Query().Get("start"))
+	end, err1 := strconv.Atoi(r.URL.Query().Get("end"))
+
+	if err != nil || err1 != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Range failed to parse"))
+		return
+	}
+
+	download(conf, start, end)
 	clean(conf)
 	save(conf)
 	w.Write([]byte("Download Range"))
@@ -32,7 +42,7 @@ func DownloadDaily(w http.ResponseWriter, r *http.Request, conf conf.Conf) {
 	w.Write([]byte("Download Daily"))
 }
 
-func download(s conf.Conf) {
+func download(s conf.Conf, start int, end int) {
 	fmt.Println("Downloading pdfs from ", s.DownloadUrlTemplate)
 	var Client = http.Client{
 		CheckRedirect: func(r *http.Request, via []*http.Request) error {
@@ -47,7 +57,7 @@ func download(s conf.Conf) {
 	p := pool.NewPool(s.QueueSize, s.WorkerNum)
 	p.Start()
 
-	for i := s.PdfStartNum; i <= s.PdfEndNum; i++ {
+	for i := start; i <= end; i++ {
 		p.Add(downloader.MSEPdfDownloader{
 			FileUrl:     fmt.Sprint(s.DownloadUrlTemplate, i),
 			FileName:    fmt.Sprint(s.PdfPath, i, ".pdf"),

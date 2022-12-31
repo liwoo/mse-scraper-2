@@ -11,7 +11,5 @@ type Conf struct {
 	CleanedJsonPath     string `env:"CLEANED_JSON_PATH"`
 	QueueSize           int    `env:"QUEUE_SIZE"`
 	WorkerNum           int    `env:"WORKER_NUM"`
-	PdfStartNum         int    `env:"PDF_START_NO"`
-	PdfEndNum           int    `env:"PDF_END_NO"`
 	DBConnectionString  string `env:"DB_CONNECTION_STRING"`
 }
