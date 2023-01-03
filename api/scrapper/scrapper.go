@@ -43,7 +43,7 @@ func DownloadDaily(w http.ResponseWriter, r *http.Request, conf conf.Conf) {
 	date := time.Now()
 	c := colly.NewCollector()
 	selector := fmt.Sprintf("td:contains(\"Daily %v %v %v\")", date.Day(), date.Month(), date.Year())
-	
+
 	c.OnHTML(selector, func(e *colly.HTMLElement) {
 		link := e.DOM.Parent().Find("a")
 		url, exists := link.Attr("href")
@@ -66,13 +66,17 @@ func DownloadDaily(w http.ResponseWriter, r *http.Request, conf conf.Conf) {
 }
 
 func scrap(conf conf.Conf, start int, end int) {
-	download(conf, start, end)
-	clean(conf)
-	save(conf)
+	currenntBatchPath := fmt.Sprintf("%v_%v_%v/", time.Now().Format("2006_01_02"), start, end)
+	downloadPath := download(conf, start, end, currenntBatchPath)
+	cleanedPath := clean(conf, currenntBatchPath, downloadPath)
+	save(conf, currenntBatchPath, cleanedPath)
 }
 
-func download(s conf.Conf, start int, end int) {
+func download(s conf.Conf, start int, end int, currentBatchPath string) string {
 	fmt.Println("Downloading pdfs from ", s.DownloadUrlTemplate)
+	csvDownloadPath := fmt.Sprint(s.CsvPath, currentBatchPath)
+	pdfDownloadPath := fmt.Sprint(s.PdfPath, currentBatchPath)
+	utils.EnsureDirsExist([]string{csvDownloadPath, pdfDownloadPath})
 	var Client = http.Client{
 		CheckRedirect: func(r *http.Request, via []*http.Request) error {
 			r.URL.Opaque = r.URL.Path
@@ -89,22 +93,26 @@ func download(s conf.Conf, start int, end int) {
 	for i := start; i <= end; i++ {
 		p.Add(downloader.MSEPdfDownloader{
 			FileUrl:     fmt.Sprint(s.DownloadUrlTemplate, i),
-			FileName:    fmt.Sprint(s.PdfPath, i, ".pdf"),
-			FileNameCSV: fmt.Sprint(s.CsvPath, i, ".csv"),
+			FileName:    fmt.Sprint(pdfDownloadPath, i, ".pdf"),
+			FileNameCSV: fmt.Sprint(csvDownloadPath, i, ".csv"),
 			Client:      Client,
 			CsvClient:   &clientCSV,
 		})
 	}
 
 	p.Close()
+
+	return csvDownloadPath
 }
 
-func clean(s conf.Conf) {
-	fmt.Println("Saving pdfs to ", s.CleanedCSVPath)
+func clean(s conf.Conf, currentBatchPath string, downloadPath string) string {
+	cleanPath := fmt.Sprint(s.CleanedCSVPath, currentBatchPath)
+	fmt.Println("Cleaning csvs to ", cleanPath)
+	utils.EnsureDirsExist([]string{fmt.Sprint(s.ErrorPath, currentBatchPath), cleanPath})
 	p := pool.NewPool(s.QueueSize, s.WorkerNum)
 	p.Start()
 
-	files, err := cleaner.GetAllFilesToClean(s.CsvPath)
+	files, err := cleaner.GetAllFilesToClean(downloadPath)
 
 	if err != nil {
 		log.Fatal(err)
@@ -113,16 +121,20 @@ func clean(s conf.Conf) {
 	for _, file := range files {
 		p.Add(cleaner.MSECsvCleaner{
 			FileUrl:      file,
-			ErrorPath:    s.ErrorPath,
-			CleanCsvPath: s.CleanedCSVPath,
+			ErrorPath:    fmt.Sprint(s.ErrorPath, currentBatchPath),
+			CleanCsvPath: cleanPath,
 		})
 	}
 
 	p.Close()
+
+	return cleanPath
 }
 
-func save(s conf.Conf) {
-	fmt.Println("Saving to Database from... ", s.CleanedJsonPath)
+func save(s conf.Conf, currentBatchPath string, cleanedCsvPath string) {
+	cleanedJson := fmt.Sprint(s.CleanedJsonPath, currentBatchPath)
+	fmt.Println("Saving to Database from... ", cleanedCsvPath)
+	utils.EnsureDirsExist([]string{cleanedJson, fmt.Sprint(s.ErrorPath, currentBatchPath)})
 	p := pool.NewPool(s.QueueSize, s.WorkerNum)
 
 	var pgconn *pgdriver.Connector = pgdriver.NewConnector(pgdriver.WithDSN(s.DBConnectionString))
@@ -132,7 +144,7 @@ func save(s conf.Conf) {
 
 	p.Start()
 
-	files, err := utils.GetAllCsvFiles(s.CleanedCSVPath)
+	files, err := utils.GetAllCsvFiles(cleanedCsvPath)
 
 	if err != nil {
 		log.Fatal(err)
@@ -141,7 +153,7 @@ func save(s conf.Conf) {
 	for _, file := range files {
 		p.Add(saver.MSESaver{
 			FileUrl:   file,
-			ErrorPath: s.ErrorPath,
+			ErrorPath: fmt.Sprint(s.ErrorPath, currentBatchPath),
 			Db:        db,
 		})
 	}
