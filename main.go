@@ -16,7 +16,7 @@ func main() {
 		w.Write([]byte("Welcome to MSE Scrapper"))
 	})
 
-	app.Router.Route("/scrapper", func(r chi.Router) {
+	app.Router.Route("/api/scrapper", func(r chi.Router) {
 		r.Get("/download", func(w http.ResponseWriter, r *http.Request) {
 			scrapper.DownloadRange(w, r, app.Conf)
 		})
@@ -26,7 +26,7 @@ func main() {
 	})
 
 	// Clean Date
-	app.Router.Route("/clean", func(r chi.Router) {
+	app.Router.Route("/api/clean", func(r chi.Router) {
 		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 			clean.CleanDatabase(w, r, app.Conf)
 		})
