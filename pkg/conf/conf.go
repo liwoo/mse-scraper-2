@@ -1,7 +1,7 @@
 package conf
 
 type Conf struct {
-	Port                string `env:"PORT"`
+	ServerPort          string `env:"SERVER_PORT"`
 	DownloadUrlTemplate string `env:"MSE_URL"`
 	PdfPath             string `env:"RAW_PDF_PATH"`
 	CsvPath             string `env:"RAW_CSV_PATH"`

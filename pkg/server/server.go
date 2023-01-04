@@ -49,5 +49,5 @@ func initPaths(conf *conf.Conf) {
 }
 
 func (app Server) Run() {
-	http.ListenAndServe(":"+app.Conf.Port, app.Router)
+	http.ListenAndServe(":"+app.Conf.ServerPort, app.Router)
 }
