@@ -1,56 +1,36 @@
 package main
 
 import (
-	"flag"
-	"github.com/joho/godotenv"
-	"log"
-	scraper2 "mseScraping/scraper"
-	"strconv"
+	"mseScraping/http/handlers/clean"
+	"mseScraping/http/handlers/scrapper"
+	"mseScraping/pkg/server"
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
 )
 
 func main() {
-	envs, err := godotenv.Read(".env")
+	app := server.Build()
 
-	if err != nil {
-		panic(err)
-	}
-	var mode string
-	flag.StringVar(&mode, "mode", "", "The mode to run in, the options are download or clean.")
-	flag.Parse()
+	app.Router.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Welcome to MSE Scrapper"))
+	})
 
-	queueSize, queueSizeError := strconv.Atoi(envs["QUEUE_SIZE"])
-	workerNum, workerNumError := strconv.Atoi(envs["WORKER_NUM"])
-	pdfStartNo, pdfStartNoError := strconv.Atoi(envs["PDF_START_NO"])
-	pdfEndNo, pdfEndNoError := strconv.Atoi(envs["PDF_END_NO"])
+	app.Router.Route("/api/scrapper", func(r chi.Router) {
+		r.Get("/download", func(w http.ResponseWriter, r *http.Request) {
+			scrapper.DownloadRange(w, r, app.Conf)
+		})
+		r.Get("/daily", func(w http.ResponseWriter, r *http.Request) {
+			scrapper.DownloadDaily(w, r, app.Conf)
+		})
+	})
 
-	if queueSizeError != nil || workerNumError != nil || pdfStartNoError != nil || pdfEndNoError != nil {
-		log.Panicf("Cannot convert Queue Size or Worker Nums to Int")
-	}
+	// Clean Date
+	app.Router.Route("/api/clean", func(r chi.Router) {
+		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+			clean.CleanDatabase(w, r, app.Conf)
+		})
+	})
 
-	scraper := scraper2.CreateScraper(
-		envs["MSE_URL"],
-		envs["RAW_PDF_PATH"],
-		envs["RAW_CSV_PATH"],
-		envs["ERROR_FILE_PATH"],
-		envs["PDFTABLES_API_KEY"],
-		envs["CLEANED_CSV_PATH"],
-		envs["CLEANED_JSON_PATH"],
-		envs["DB_CONNECTION_STRING"],
-		queueSize,
-		workerNum,
-		pdfStartNo,
-		pdfEndNo)
-
-	switch mode {
-	case "download":
-		scraper.Download()
-	case "clean":
-		scraper.Clean()
-	case "save":
-		scraper.Save()
-	case "cleanDb":
-		scraper.CleanDb()
-	default:
-		log.Fatal("Please Enter the Necessary Flag (e.g. -download)", mode)
-	}
+	app.Run()
 }
