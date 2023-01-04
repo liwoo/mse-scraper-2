@@ -1,8 +1,8 @@
 package main
 
 import (
-	"mseScraping/api/clean"
-	"mseScraping/api/scrapper"
+	"mseScraping/http/handlers/clean"
+	"mseScraping/http/handlers/scrapper"
 	"mseScraping/pkg/server"
 	"net/http"
 

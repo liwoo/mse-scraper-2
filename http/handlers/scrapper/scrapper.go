@@ -3,9 +3,9 @@ package scrapper
 import (
 	"fmt"
 	"log"
-	"mseScraping/api/scrapper/cleaner"
-	"mseScraping/api/scrapper/downloader"
-	"mseScraping/api/scrapper/saver"
+	"mseScraping/http/handlers/scrapper/cleaner"
+	"mseScraping/http/handlers/scrapper/downloader"
+	"mseScraping/http/handlers/scrapper/saver"
 	"mseScraping/pkg/conf"
 	"mseScraping/utils"
 	"net/http"
